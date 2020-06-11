@@ -75,10 +75,15 @@ class GithubObject(object):
     A global debug flag to enable header validation by requester for all objects
     """
     CHECK_AFTER_INIT_FLAG = False
+    _ATTRIBUTES = {}
 
     @classmethod
     def setCheckAfterInitFlag(cls, flag):
         cls.CHECK_AFTER_INIT_FLAG = flag
+
+    def _initAttributes(self):
+        for attribute in self._ATTRIBUTES:
+            setattr(self, '_' + attribute, NotSet)
 
     def __init__(self, requester, headers, attributes, completed):
         self._requester = requester
@@ -89,6 +94,12 @@ class GithubObject(object):
         # Since it's most handy to access and kinda all-knowing
         if self.CHECK_AFTER_INIT_FLAG:  # pragma no branch (Flag always set in tests)
             requester.check_me(self)
+
+    def _useAttributes(self, attributes):
+        for attribute, type_ in self._ATTRIBUTES.items():
+            if attribute in attributes: # pragma no branch
+                make_method = getattr(self, f'_make{type_}Attribute')
+                setattr(self, '_' + attribute, make_method(attributes[attribute]))
 
     def _storeAndUseAttributes(self, headers, attributes):
         # Make sure headers are assigned before calling _useAttributes
@@ -278,9 +289,31 @@ class GithubObject(object):
         )
 
 
+class NonCompletableGithubObjectMeta(type):
+    def __new__(cls, name, bases, dct):
+        instance = super().__new__(cls, name, bases, dct)
+        for attr in dct.get('_ATTRIBUTES') or []:
+            def fget(self, attr_=attr):
+                return getattr(self, '_' + attr_).value
+            setattr(instance, attr, property(fget))
+        return instance
+
+
 class NonCompletableGithubObject(GithubObject):
     def _completeIfNeeded(self):
         pass
+
+
+class CompletableGithubObjectMeta(type):
+    def __new__(cls, name, bases, dct):
+        instance = super().__new__(cls, name, bases, dct)
+        for attr in dct.get('_ATTRIBUTES') or []:
+            def fget(self, attr_=attr):
+                _attr = getattr(self, '_' + attr_)
+                self._completeIfNotSet(_attr)
+                return _attr.value
+            setattr(instance, attr, property(fget))
+        return instance
 
 
 class CompletableGithubObject(GithubObject):
