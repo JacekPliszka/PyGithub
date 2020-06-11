@@ -289,9 +289,31 @@ class GithubObject(object):
         )
 
 
+class NonCompletableGithubObjectMeta(type):
+    def __new__(cls, name, bases, dct):
+        instance = super().__new__(cls, name, bases, dct)
+        for attr in dct.get('_ATTRIBUTES') or []:
+            def fget(self, attr_=attr):
+                return getattr(self, '_' + attr_).value
+            setattr(instance, attr, property(fget))
+        return instance
+
+
 class NonCompletableGithubObject(GithubObject):
     def _completeIfNeeded(self):
         pass
+
+
+class CompletableGithubObjectMeta(type):
+    def __new__(cls, name, bases, dct):
+        instance = super().__new__(cls, name, bases, dct)
+        for attr in dct.get('_ATTRIBUTES') or []:
+            def fget(self, attr_=attr):
+                _attr = getattr(self, '_' + attr_)
+                self._completeIfNotSet(_attr)
+                return _attr.value
+            setattr(instance, attr, property(fget))
+        return instance
 
 
 class CompletableGithubObject(GithubObject):
