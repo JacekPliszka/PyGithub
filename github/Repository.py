@@ -92,6 +92,7 @@ from base64 import b64encode
 
 from deprecated import deprecated
 
+import github.Artifact
 import github.Branch
 import github.Clones
 import github.Commit
@@ -2159,6 +2160,20 @@ class Repository(github.GithubObject.CompletableGithubObject):
             ),
             "content": github.GithubObject.NotSet,
         }
+
+    def get_artifacts(self):
+        """
+        :calls: `GET /repos/:owner/:repo/actions/artifacts
+            <https://developer.github.com/v3/actions/artifacts/#list-artifacts-for-a-repository>
+        :rtype: :class:`github.PaginatedList.PaginatedList` of :class:`github.Artifacts.Artifact`
+        """
+        return github.PaginatedList.PaginatedList(
+            github.Artifact.Artifact,
+            self._requester,
+            self.url + "/actions/artifacts",
+            None,
+            list_item="artifacts",
+        )
 
     @deprecated(
         reason="""
